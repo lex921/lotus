@@ -1,0 +1,39 @@
+! Configuration File for keepalived
+global_defs {
+   script_user root 
+   enable_script_security
+
+}
+
+vrrp_script chk_haproxy {
+    script "/bin/bash -c 'if [[ $(netstat -nlp | grep {{ kube_loadbalancer_apiserver.port|default(kube_apiserver_port) }} ) ]]; then exit 0; else exit 1; fi'"  # haproxy 检测
+    interval 2  # every 2s check 
+    weight 11 # weight
+}
+vrrp_instance K8S {
+    state {{ lb_keepalived_state }}
+    interface {{ ansible_default_ipv4.alias }}
+    virtual_router_id 10
+    priority 150
+    advert_int 1
+
+#    unicast_src_ip 192.168.10.129
+#    unicast_peer {
+#        192.168.10.128
+#    }
+
+    authentication {
+        auth_type PASS
+        auth_pass 1111
+    }
+
+    virtual_ipaddress {
+        {{ kube_loadbalancer_apiserver.address }}
+    }
+    track_script {
+      chk_haproxy
+    }
+
+    notify "/container/service/keepalived/assets/notify.sh"
+
+}

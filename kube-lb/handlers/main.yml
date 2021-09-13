@@ -1,0 +1,65 @@
+#- name: LB | start keepalived 
+#  docker_container:
+#    name: keepalived
+#    image: osixia/keepalived
+#    privileged: yes
+#    state: started
+#    network_mode: host
+#    detach: true
+#    command: --copy-service
+#    volumes:
+#      - /etc/keepalived/keepalived.conf:/container/service/keepalived/assets/keepalived.conf
+- name: LB | delete keepalived 
+  shell: "docker rm -f keepalived"
+  ignore_errors: true 
+
+- name: LB | start keepalived 
+  shell: "docker run --name keepalived --cap-add=NET_ADMIN --cap-add=NET_BROADCAST --cap-add=NET_RAW --net=host -d   -v /etc/keepalived/keepalived.conf:/container/service/keepalived/assets/keepalived.conf --detach  osixia/keepalived --copy-service"
+
+- name: wait for keepalived
+  shell: "docker inspect keepalived "
+  register: status
+  until: '"Running" in status.stdout'
+  retries: 60
+  delay: 15
+
+- name: restart keepalived
+  command: /bin/true
+  notify:
+    - LB | delete keepalived 
+    - LB | start keepalived
+    - wait for keepalived
+
+#- name: LB | start haproxy 
+#  docker_container:
+#    name: haproxy
+#    image: haproxy
+#    privileged: yes
+#    state: started
+#    network_mode: host
+#    volumes:
+#      - /etc/haproxy:/etc/haproxy:
+
+- name: LB | delete haproxy 
+  shell: "docker rm -f haproxy"
+  ignore_errors: true
+
+- name: LB | start haproxy   
+  shell: "docker run --name haproxy -d  --network host  -v /etc/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro haproxy"    
+
+- name: wait for haproxy
+  shell: "docker inspect haproxy "
+  register: status
+  until: '"Running" in status.stdout'
+  retries: 60
+  delay: 15
+
+- name: restart haproxy
+  command: /bin/true
+  notify:
+    - LB | delete haproxy
+    - LB | start haproxy
+    - wait for haproxy
+
+
+  

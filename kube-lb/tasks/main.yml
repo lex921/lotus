@@ -1,0 +1,61 @@
+---
+- name: LB | Set sysctl portfoward
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: LB | Set sysctl nolocal bind
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: LB | create Haproxy and Keepalived dir
+  file: 
+    name: "{{ item }}" 
+    state: directory
+  loop:
+      - "/etc/haproxy"
+      - "/etc/keepalived"
+      
+- import_tasks: images-down.yml
+  
+- name: LB | copy Keepalived config
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+  notify:
+    - restart keepalived
+    - restart haproxy
+
+- name: LB | copy Haproxy config
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+  notify:
+    - restart keepalived
+    - restart haproxy
+
+- name: restart keepalived
+  command: /bin/true
+  notify:
+    - LB | delete keepalived 
+    - LB | start keepalived
+    - wait for keepalived
+ 
+- name: restart haproxy
+  command: /bin/true
+  notify:
+    - LB | delete haproxy
+    - LB | start haproxy
+    - wait for haproxy
+
+
+ 
+
+    

@@ -1,0 +1,56 @@
+- name: Cfssl | sure config and cert directory is writeable
+  file:
+    path: "{{ item }}"
+    mode: "0755"
+    state: directory
+  loop:
+    - "{{ kube_config_dir }}/cert"
+    - "{{ ansible_env.HOME | default('/root') }}/.kube"
+  tags:
+    - kube-client  
+
+- name: Cfssl | Copy compent json csr to cert dir 
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ kube_config_dir }}/cert/{{ item }}"
+  loop:
+    - "ca-csr.json"
+    - "gencert.json"
+    - "admin-csr.json"
+    - "proxy-client-csr.json"
+    - "kube-apiserver-csr.json"
+    - "kube-controller-manager-csr.json"
+    - "kube-scheduler-csr.json"
+    - "kubelet-api-admin-csr.json"
+    - "kube-proxy-csr.json"
+  register: csr
+  tags:
+    - certs
+
+- name: cfssl | check ca if exist 
+  shell: "ls {{ kube_config_dir }}/cert"
+  register: k8sca
+  
+- name: cfssl| gen ca 
+  shell: "cd {{ kube_config_dir }}/cert && cfssl gencert --initca=true ca-csr.json | cfssljson --bare ca"
+  when: '"ca.pem" not in k8sca.stdout' 
+
+- name: Cfssl | gen cert  
+  shell: "cd {{ kube_config_dir }}/cert && cfssl gencert -ca ca.pem -ca-key ca-key.pem -config gencert.json -profile kubernetes {{ item }}-csr.json | cfssljson -bare {{ item }}"
+  args:
+    executable: /bin/bash
+    warn: false
+  loop:
+    - "admin"
+    - "proxy-client"
+    - "kube-apiserver"
+    - "kube-controller-manager"
+    - "kube-scheduler"
+    - "kubelet-api-admin"
+    - "kube-proxy"
+  loop_control:
+    index_var: my_idx  
+  when:
+    - csr.results[{{ my_idx+2 }}].changed
+  tags:
+    - certs

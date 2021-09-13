@@ -1,0 +1,38 @@
+---
+lb_keepalived_state: >-
+  {%- if inventory_hostname == groups['kube_lb'][0] -%}
+  MASTER
+  {%- else -%}
+  BACKUP
+  {%- endif -%}
+
+
+kube_apiserver_lb_addresses: |-
+  {% for item in groups['kube_control_plane'] -%}
+   server {{ hostvars[item].lb_name| default("k8s" + loop.index|string) }}  {{ hostvars[item].access_ip | default(hostvars[item].ip | default(fallback_ips[item])) }}:{{ kube_loadbalancer_apiserver.port|default(kube_apiserver_port) }} weight 1 maxconn 10000 check inter 10s
+  {% endfor %}
+  
+container_manager: "docker"
+keepalived_image_repo: "{{ docker_image_repo }}/osixia/keepalived"
+keepalived_image_tag: "latest"
+
+haproxy_image_repo: "{{ docker_image_repo }}/library/haproxy"
+haproxy_image_tag: "latest"
+
+lb_down:
+  keepalived:
+    enabled: true
+    container: true
+    repo: "{{ keepalived_image_repo }}"
+    tag: "{{ keepalived_image_tag }}"
+    sha256: "{{ keepalived_digest_checksum|default(None) }}"
+    groups:
+    - kube_node
+  haproxy:
+    enabled: true
+    container: true
+    repo: "{{ haproxy_image_repo }}"
+    tag: "{{ haproxy_image_tag }}"
+    sha256: "{{ haproxy_digest_checksum|default(None) }}"
+    groups:
+      - kube_node

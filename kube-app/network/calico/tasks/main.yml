@@ -1,0 +1,134 @@
+- name: Calico | Copy calicoctl binary from download dir
+  copy:
+    src: "{{ local_release_dir }}/calicoctl"
+    dest: "{{ bin_dir }}/calicoctl"
+    mode: 0755
+    remote_src: yes
+
+- name: Calico | Create calico certs directory
+  file:
+    dest: "{{ calico_cert_dir }}"
+    state: directory
+    mode: 0750
+    owner: root
+    group: root
+  when: calico_datastore == "etcd"
+
+- name: Calico | Link etcd certificates for calico-node
+  file:
+    src: "{{ etcd_cert_dir }}/{{ item.s }}"
+    dest: "{{ calico_cert_dir }}/{{ item.d }}"
+    state: hard
+    mode: 0640
+    force: yes
+  loop:
+    - {s: "{{ kube_etcd_cacert_file }}", d: "ca_cert.crt"}
+    - {s: "{{ kube_etcd_cert_file }}", d: "cert.crt"}
+    - {s: "{{ kube_etcd_key_file }}", d: "key.pem"}
+  when: calico_datastore == "etcd"
+
+
+- name: Calico | Install calicoctl wrapper script
+  template:
+    src: "calicoctl.{{ calico_datastore }}.sh.j2"
+    dest: "{{ bin_dir }}/calicoctl.sh"
+    mode: 0755
+    owner: root
+    group: root
+
+- name: Calico | wait for etcd
+  uri:
+    url: "{{ etcd_access_addresses.split(',') | first }}/health"
+    validate_certs: no
+    client_cert: "{{ calico_cert_dir }}/cert.crt"
+    client_key: "{{ calico_cert_dir }}/key.pem"
+  register: result
+  until: result.status == 200 or result.status == 401
+  retries: 10
+  delay: 5
+  run_once: true
+  when: calico_datastore == "etcd"
+
+- name: Calico | Check if calico network pool has already been configured
+  # noqa 306 - grep will exit 1 if no match found
+  shell: >
+    {{ bin_dir }}/calicoctl.sh get ippool | grep -w "{{ calico_pool_cidr | default(kube_pods_subnet) }}" | wc -l
+  args:
+    executable: /bin/bash
+  register: calico_conf
+  retries: 4
+  until: calico_conf.rc == 0
+  delay: "{{ retry_stagger | random + 3 }}"
+  changed_when: false
+
+- name: Calico | Ensure that calico_pool_cidr is within kube_pods_subnet when defined
+  assert:
+    that: "[calico_pool_cidr] | ipaddr(kube_pods_subnet) | length == 1"
+    msg: "{{ calico_pool_cidr }} is not within or equal to {{ kube_pods_subnet }}"
+  when:
+    - 'calico_conf.stdout == "0"'
+    - calico_pool_cidr is defined
+
+
+- name: Calico | Configure calico network pool
+  command:
+    cmd: "{{ bin_dir }}/calicoctl.sh apply -f -"
+    stdin: "{{ stdin is string | ternary(stdin, stdin|to_json) }}"
+  vars:
+    stdin: >
+      { "kind": "IPPool",
+        "apiVersion": "projectcalico.org/v3",
+        "metadata": {
+          "name": "{{ calico_pool_name }}",
+        },
+        "spec": {
+          "blockSize": {{ calico_pool_blocksize | default(kube_network_node_prefix) }},
+          "cidr": "{{ calico_pool_cidr | default(kube_pods_subnet) }}",
+          "ipipMode": "{{ calico_ipip_mode }}",
+          "vxlanMode": "{{ calico_vxlan_mode }}",
+          "natOutgoing": {{ nat_outgoing|default(false) and not peer_with_router|default(false) }} }}
+  when:
+    - inventory_hostname == groups['kube_control_plane'][0]
+    - 'calico_conf.stdout == "0"'
+
+- name: Calico | Create calico manifests
+  template:
+    src: "{{ item.file }}.j2"
+    dest: "{{ kube_config_dir }}/{{ item.file }}"
+  loop:
+    - { name: calico, file: calico.yml,type: deploy }
+  register: calico_node_manifests
+  when:
+    - inventory_hostname in groups['kube_control_plane']
+
+- name: Calico | Install calico-secrets  script
+  template:
+    src: "calico-secrets.sh.j2"
+    dest: "{{ kube_config_dir }}/calico-secrets.sh"
+    mode: 0755
+    owner: root
+    group: root  
+    
+- name: Calico | Apply  calico-secrets  script
+  shell: "cd {{ kube_config_dir }} && sh -x calico-secrets.sh"
+  args:
+    executable: /bin/bash
+    warn: false
+- debug:
+    msg: "{{ calico_node_manifests.results }}"
+- debug:
+    msg: "{{ item.item }}"
+  loop: "{{ calico_node_manifests.results }}"  
+- name: Start Calico resources
+  kube:
+    name: "{{ item.item.name }}"
+    namespace: "kube-system"
+    kubectl: "{{ bin_dir }}/kubectl"
+    resource: "{{ item.item.type }}"
+    filename: "{{ kube_config_dir }}/{{ item.item.file }}"
+    state: "latest"
+  loop: "{{ calico_node_manifests.results }}"
+  when:
+    - inventory_hostname == groups['kube_control_plane'][0]
+  loop_control:
+    label: "{{ item.item.file }}"

@@ -1,0 +1,68 @@
+---
+download_localhost: true
+cfssl_cert: "/opt/cfssl/"
+cfssl_version: 1.6.0
+cfssljson_version: "{{ cfssl_version }}"
+cfsslcertinfo_version: "{{ cfssl_version }}"
+cfsslnewkey_version: "{{ cfssl_version }}"
+
+cfssl_download_url: "https://github.com/cloudflare/cfssl/releases/download/v{{ cfssl_version }}/cfssl_{{ cfssl_version }}_linux_amd64"
+cfssljson_download_url: "https://github.com/cloudflare/cfssl/releases/download/v{{ cfssljson_version }}/cfssljson_{{ cfssljson_version }}_linux_amd64"
+cfsslcertinfo_download_url: "https://github.com/cloudflare/cfssl/releases/download/v{{ cfsslcertinfo_version }}/cfssl-certinfo_{{ cfsslcertinfo_version }}_linux_amd64"
+cfsslnewkey_download_url: "https://github.com/cloudflare/cfssl/releases/download/v{{ cfsslnewkey_version }}/cfssl-newkey_{{ cfsslnewkey_version }}_linux_amd64"
+
+cfssl_binary_checksum: "b830b0faf606cb2ae8b45c783edf4776eedb3728efd515e7f1ce63b3a475d667"
+cfssljson_binary_checksum: "c6ede7b74d3688968cee140e56484507e6b5de9abd6530bb1ecfacd2e2ceec9d"
+cfsslcertinfo_binary_checksum: "26cf23ac130a2e5d725fc8e75b4c4243afb28b393884c6ad16aa3f247788b395"
+cfsslnewkey_binary_checksum: "606c4d489e1d3d866bdff614ac1992771b40f823364b0a9fd0ce71a333dbbe62"
+
+cfssl_down:
+  cfssl:
+    enabled: true
+    file: true
+    version: "{{ cfssl_version }}"
+    dest: "{{ local_release_dir }}/cfssl"
+    sha256: "{{  cfssl_binary_checksum }}"
+    url: "{{ cfssl_download_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+
+  cfssljson:
+    enabled: true
+    file: true
+    version: "{{ cfssljson_version }}"
+    dest: "{{ local_release_dir }}/cfssljson"
+    sha256: "{{ cfssljson_binary_checksum }}"
+    url: "{{ cfssljson_download_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+
+  cfsslcertinfo:
+    enabled: true
+    file: true
+    version: "{{ cfsslcertinfo_version }}"
+    dest: "{{ local_release_dir }}/cfssl-certinfo"
+    sha256: "{{ cfsslcertinfo_binary_checksum }}"
+    url: "{{ cfsslcertinfo_download_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+
+  cfsslnewkey:
+    enabled: true
+    file: true
+    version: "{{ cfsslnewkey_version }}"
+    dest: "{{ local_release_dir }}/cfssl-newkey"
+    sha256: "{{ cfsslnewkey_binary_checksum }}"
+    url: "{{ cfsslnewkey_download_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+
+cfssl_bin:
+  - "cfssl"
+  - "cfssljson"
+  - "cfssl-certinfo"
+  - "cfssl-newkey"

@@ -1,0 +1,33 @@
+{
+  "CN": "kubernetes",
+   "hosts": [
+    {% if kube_loadbalancer_apiserver is defined -%}
+       "{{ kube_loadbalancer_apiserver.address }}",
+       "{{ kube_loadbalancer_apiserver.domain_name }}",
+    {% endif -%}
+    {% for host in groups['kube_control_plane'] -%}
+        "{{hostvars[host]['ip']|default(hostvars[host].ansible_default_ipv4['address'])}}",
+    {% endfor -%}   
+        "{{ kube_apiserver_ip }}",      
+        "127.0.0.1",
+        "localhost",
+        "kubernetes",
+        "kubernetes.default",
+        "kubernetes.default.svc",
+        "kubernetes.default.svc.cluster",
+        "kubernetes.default.svc.cluster.local"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "ST": "BeiJing",
+            "L": "BeiJing",
+            "O": "kubernetes",
+            "OU": "System"
+        }
+    ]
+}

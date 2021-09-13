@@ -1,0 +1,62 @@
+---
+- name: "Check_certs | Register certs that have already been generated on first etcd node"
+  find:
+    paths: "{{ kube_config_dir }}/cert"
+    patterns: "ca*.pem,kube-apiserver*.pem"
+    get_checksum: true
+  register: k8scert_master  
+  delegate_to: localhost
+  run_once: true
+- name: "Check_certs | Set default value for 'sync_certs', 'gen_certs' to false"
+  set_fact:
+    sync_certs: false
+
+- name: "Check certs | Register ca and k8s-controller certs on kubernetes hosts"
+  stat:
+    path: "{{ kube_cert_dir }}/{{ item }}"
+  register: k8s_control_certs
+  when: inventory_hostname in groups['kube_control_plane']
+  loop:
+    - ca.pem
+    - ca-key.pem
+    - kube-apiserver.pem
+    - kube-apiserver-key.pem    
+  
+- name: "Check_certs | Set 'gen_node_certs' object to track whether node certs exist on first k8s master"
+  set_fact:
+    gen_node_certs: |-
+      {
+      {% set k8s_nodes = groups['kube_control_plane']|default([])|unique|sort -%}
+      {% set existing_certs = k8scert_master.files|map(attribute='path')|list|sort %}
+      {% for host in k8s_nodes -%}
+        {% set k8s_cert = "kube-apiserver.pem" %}
+        {% set k8s_key = "kube-apiserver-key.pem " %}
+        {% if k8s_cert in existing_certs and k8s_key in existing_certs -%}
+        "{{ host }}": False,
+        {% else -%}
+        "{{ host }}": True,
+        {% endif -%}
+      {% endfor %}
+      }
+  run_once: true
+
+- name: "Check_certs | Set 'kubernetes_host_requires_sync' to true if ca or node cert and key don't exist on kubernetes host or checksum doesn't match"
+  set_fact:
+    kubernetes_host_requires_sync: true
+  when:
+    - inventory_hostname in groups['kube_control_plane']
+    - (not k8s_control_certs.results[0].stat.exists|default(false)) or
+      (not k8s_control_certs.results[1].stat.exists|default(false)) or
+      (not k8s_control_certs.results[2].stat.exists|default(false)) or
+      (not k8s_control_certs.results[3].stat.exists|default(false)) or
+      (k8s_control_certs.results[0].stat.checksum|default('') != k8scert_master.files|selectattr("path", "equalto", k8s_control_certs.results[0].stat.path)|map(attribute="checksum")|first|default('')) or
+      (k8s_control_certs.results[1].stat.checksum|default('') != k8scert_master.files|selectattr("path", "equalto", k8s_control_certs.results[1].stat.path)|map(attribute="checksum")|first|default('')) or
+      (k8s_control_certs.results[2].stat.checksum|default('') != k8scert_master.files|selectattr("path", "equalto", k8s_control_certs.results[2].stat.path)|map(attribute="checksum")|first|default(''))or
+      (k8s_control_certs.results[3].stat.checksum|default('') != k8scert_master.files|selectattr("path", "equalto", k8s_control_certs.results[3].stat.path)|map(attribute="checksum")|first|default(''))
+
+
+- name: "Check_certs | Set 'sync_certs' to true"
+  set_fact:
+    sync_certs: true
+  when:
+    - kubernetes_host_requires_sync|default(false) or gen_node_certs[inventory_hostname]

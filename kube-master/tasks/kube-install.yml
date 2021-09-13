@@ -1,0 +1,80 @@
+---
+- name: Kube-master | prep download  request images
+  include_tasks: "../../../download/tasks/prep_download.yml"
+
+- name: Kube-master | Download kubectl
+  include_tasks: "../../../download/tasks/download_file.yml"
+  vars:
+    download: "{{ download_defaults|combine(downloads.kubectl)}}"
+
+
+- name: Install | Copy kubectl binary from download dir localhost
+  copy:
+    src: "{{ file_path_cached if download_force_cache else local_release_dir }}/kubectl-{{ kube_version }}-{{ image_arch }}"
+    dest: "{{ bin_dir }}/kubectl"
+    mode: "0755"  
+  delegate_to: "localhost"
+  run_once: true
+  ignore_errors: true
+  changed_when: false
+  when:
+    - not (inventory_hostname == "localhost")
+  tags:
+    - kubernetes
+    - upgrade        
+
+- name: Install | Copy kubectl binary from download dir
+  copy:
+    src: "{{ local_release_dir }}/kubectl-{{ kube_version }}-{{ image_arch }}"
+    dest: "{{ bin_dir }}/kubectl"
+    mode: "0755"
+    remote_src: yes
+  ignore_errors: True
+  changed_when: false
+  tags:
+    - kubernetes
+    - upgrade    
+
+- name: Kube-master | Download kube_master
+  include_tasks: "../../../download/tasks/download_file.yml"
+  vars:
+    download: "{{ download_defaults|combine(item.value)}}"
+  loop: "{{ kube_down|dict2items}}"
+
+- name: Install | Copy kuberntes binary from download dir
+  copy:
+    src: "{{ local_release_dir }}/{{ item }}"
+    dest: "{{ bin_dir }}/{{ item }}"
+    mode: "0755"
+    remote_src: yes
+  loop: "{{ kube_master_bin }}"
+  ignore_errors: True
+  changed_when: false
+  notify: 
+    - Master | Restart kube-apiserver
+    - Master | Restart kube-controller-manager
+    - Master | Restart kube-scheduler
+  tags:
+    - kubernetes
+    - upgrade
+
+- name: Install | Install kubectl bash completion
+  shell: "{{ bin_dir }}/kubectl completion bash >/etc/bash_completion.d/kubectl.sh"
+  when: ansible_os_family in ["Debian","RedHat"]
+  tags:
+    - kubectl
+  ignore_errors: True
+
+- name: Install | Set kubectl bash completion file permissions
+  file:
+    path: /etc/bash_completion.d/kubectl.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_os_family in ["Debian","RedHat"]
+  tags:
+    - kubectl
+    - upgrade
+  ignore_errors: True      
+
+    

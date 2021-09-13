@@ -1,0 +1,13 @@
+---
+- name: Node | prep download  request images
+  include_tasks: "../../../download/tasks/prep_download.yml"
+
+- name: Node | Download kubelet
+  include_tasks: "../../../download/tasks/download_file.yml"
+  vars:
+    download: "{{ download_defaults | combine(downloads.kubelet) }}"
+
+- name: Node | Download kube-proxy
+  include_tasks: "../../../download/tasks/download_file.yml"
+  vars:
+    download: "{{ download_defaults | combine(kube_node_down.kube_proxy) }}"  

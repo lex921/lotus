@@ -1,0 +1,23 @@
+---
+- name: Install | populate kubernetes loadbalancer address into hosts file
+  lineinfile:
+    dest: /etc/hosts
+    regexp: ".*{{ kube_loadbalancer_apiserver.domain_name }}$"
+    line: "{{ kube_loadbalancer_apiserver.address }} {{ kube_loadbalancer_apiserver.domain_name }}"
+    state: present
+    backup: yes
+    unsafe_writes: yes
+  when:
+    - kube_loadbalancer_apiserver.domain_name is defined
+    - kube_loadbalancer_apiserver.address is defined
+- name: Install | populate harbor loadbalancer address into hosts file
+  lineinfile:
+    dest: /etc/hosts
+    regexp: ".*{{ kube_loadbalancer_harbor.domain_name }}$"
+    line: "{{ kube_loadbalancer_harbor.address }} {{ kube_loadbalancer_harbor.domain_name }}"
+    state: present
+    backup: yes
+    unsafe_writes: yes
+  when:
+    - kube_loadbalancer_harbor.domain_name is defined
+    - kube_loadbalancer_harbor.address is defined

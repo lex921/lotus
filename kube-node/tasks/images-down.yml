@@ -1,0 +1,13 @@
+---
+- name: Node | prep download  request images
+  include_tasks: "../../../download/tasks/prep_download.yml"
+
+- name: Node | Download dns images
+  include_tasks: "../../../download/tasks/download_container.yml"
+  vars:
+    download: "{{ download_defaults | combine(downloads.coredns) }}"
+
+- name: Node | Download network images
+  include_tasks: "../../../download/tasks/download_container.yml"
+  vars:
+    download: "{{ download_defaults | combine(downloads[{{ kube_network_plugin }}]) }}" 

@@ -1,0 +1,27 @@
+---
+- name : Install | Download kuberntes binary
+  import_tasks: kube-install.yml
+  
+- name: Install | Disable SecurityContextDeny admission-controller and enable PodSecurityPolicy
+  set_fact:
+    kube_apiserver_enable_admission_plugins: "{{ kube_apiserver_enable_admission_plugins | difference(['SecurityContextDeny']) | union(['PodSecurityPolicy']) | unique }}"
+  when: podsecuritypolicy_enabled
+
+- name: Install | populate kubernetes loadbalancer address into hosts file
+  lineinfile:
+    dest: /etc/hosts
+    regexp: ".*{{ kube_loadbalancer_apiserver.domain_name }}$"
+    line: "{{ kube_loadbalancer_apiserver.address }} {{ kube_loadbalancer_apiserver.domain_name }}"
+    state: present
+    backup: yes
+    unsafe_writes: yes
+  when:
+    - kube_loadbalancer_apiserver.domain_name|bool 
+    - kube_loadbalancer_apiserver.address|bool
+
+- name: Install | Check kubeconfig and certs setup
+  import_tasks: check-certs.yml
+
+- name: Install | Include kubeconfig and certs setup
+  import_tasks: kube-config.yml
+

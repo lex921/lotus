@@ -1,0 +1,9 @@
+---
+- name: LB | prep download  request images
+  include_tasks: "../../../download/tasks/prep_download.yml"
+
+- name: LB | Download request images
+  include_tasks: "../../../download/tasks/download_container.yml"
+  vars:
+    download: "{{ download_defaults | combine(item.value) }}"
+  loop: "{{ lb_down|dict2items }}"

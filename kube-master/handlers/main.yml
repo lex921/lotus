@@ -1,0 +1,77 @@
+---
+- name: Master | Restart kube-apiserver
+  command: /bin/true
+  notify:
+    - Master | reload systemd 
+    - Master | reload apiserver
+    - Master | wait for the apiserver to be running
+
+- name: Master | reload apiserver
+  service:
+    name: kube-apiserver
+    state: restarted
+
+- name: Master | Restart kube-scheduler
+  command: /bin/true
+  notify:
+    - Master | reload systemd
+    - Master | reload kube-scheduler
+    - Master | wait for kube-scheduler
+
+  
+- name: Master | reload kube-scheduler
+  service:
+    name: kube-scheduler
+    state: restarted
+
+- name: Master | Restart kube-controller-manager
+  command: /bin/true
+  notify:
+    - Master | reload systemd
+    - Master | reload kube-controller-manager
+    - Master | wait for kube-controller-manager
+
+- name: Master | reload kube-controller-manager
+  service:
+    name: kube-controller-manager
+    state: restarted
+
+- name: Master | reload systemd
+  systemd:
+    daemon_reload: true
+
+
+- name: Master | wait for kube-scheduler
+  vars:
+    endpoint: "{{ kube_scheduler_bind_address if kube_scheduler_bind_address != '0.0.0.0' else 'localhost' }}"
+  uri:
+    url: https://{{ endpoint }}:10259/healthz
+    validate_certs: no
+  register: scheduler_result
+  until: scheduler_result.status == 200
+  retries: 60
+  delay: 1
+
+- name: Master | wait for kube-controller-manager
+  vars:
+    endpoint: "{{ kube_controller_manager_bind_address if kube_controller_manager_bind_address != '0.0.0.0' else 'localhost' }}"
+  uri:
+    url: https://{{ endpoint }}:10257/healthz
+    validate_certs: no
+  register: controller_manager_result
+  until: controller_manager_result.status == 200
+  retries: 60
+  delay: 1
+
+- name: Master | wait for the apiserver to be running
+  vars:
+    endpoint: "{{ kube_apiserver_bind_address if kube_apiserver_bind_address != '0.0.0.0' else 'localhost' }}"
+  uri:
+    url: "https://{{ endpoint }}:6443/healthz"
+    validate_certs: no
+    client_cert: "{{kube_apiserver_client_cert }}"
+    client_key: "{{kube_apiserver_client_key }}"
+  register: result
+  until: result.status == 200
+  retries: 60
+  delay: 1

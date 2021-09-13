@@ -1,0 +1,27 @@
+--- 
+- name: Create bootstrap yaml to dir
+  template:
+    src: "{{ item }}.yml.j2"
+    dest: "{{ kube_config_dir }}/cert/{{ item }}.yaml"
+  loop:
+    - "auto-approve-csrs-for-group"  
+    - "auto-approve-renewals-for-nodes"
+    - "create-csrs-for-bootstrapping"
+    - "kubelet-server-csrs-approve"
+    - "kubelet-api-admin"
+  delegate_to: localhost
+  connection: local
+  run_once: yes   
+
+
+- name: Init bootstrap apply for kubernetes
+  shell: "cd {{ kube_config_dir }}/cert && kubectl apply -f {{ item }}.yaml"
+  loop:
+    - "auto-approve-csrs-for-group"  
+    - "auto-approve-renewals-for-nodes"
+    - "create-csrs-for-bootstrapping"
+    - "kubelet-server-csrs-approve"
+    - "kubelet-api-admin"
+  delegate_to: localhost
+  connection: local
+  run_once: yes

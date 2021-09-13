@@ -1,0 +1,38 @@
+---
+etcd_deployment_type: host ## etcd deployment change to host
+download_container: false
+download_localhost: true
+download_run_once: true
+helm_enabled: true
+kube_network_plugin: calico
+calico_datastore: etcd
+kube_apiserver_client_cert: "{{ kube_cert_dir }}/ca.pem"
+kube_apiserver_client_key: "{{ kube_cert_dir }}/ca-key.pem"
+http_proxy: 'http://192.168.50.137:1081'
+#https_proxy: "{{ http_proxy }}"
+deploy_netchecker: true
+dns_min_replicas: 1
+
+kube_apiserver_endpoint: |-
+  {% if loadbalancer_apiserver is defined -%}
+      https://{{ apiserver_loadbalancer_domain_name }}:{{ loadbalancer_apiserver.port|default(kube_apiserver_port) }}
+  {%- elif not is_kube_master and loadbalancer_apiserver_localhost -%}
+      https://localhost:{{ loadbalancer_apiserver_port|default(kube_apiserver_port) }}
+  {%- else -%}
+      https://{{ first_kube_master }}:{{ kube_apiserver_port }}
+  {%- endif %}
+gcr_image_repo: "registry.cn-hangzhou.aliyuncs.com"
+containerd_registries:
+  "docker.io":
+    - "https://registry-1.docker.io"
+  "gcr.io":
+    - "https://registry.cn-hangzhou.aliyuncs.com"  
+kube_loadbalancer_apiserver:
+  domain_name: ""
+  address: ""
+# TODO harbor ha
+kube_loadbalancer_harbor:
+  domain_name: ""
+  address: ""
+
+    

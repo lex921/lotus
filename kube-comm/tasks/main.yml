@@ -1,0 +1,4 @@
+---
+- import_tasks: update_ca_trust.yml
+
+- import_tasks: update_hosts.yml

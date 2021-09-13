@@ -1,0 +1,26 @@
+---
+- name: Node | restart kubelet
+  command: /bin/true
+  notify:
+    - Kubelet | reload systemd
+    - Kubelet | restart kubelet
+
+- name: Node | restart kube-proxy
+  command: /bin/true
+  notify:
+    - Kubelet | reload systemd
+    - Kubelet | restart kube-proxy
+    
+- name: Kubelet | reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: Kubelet | restart kubelet
+  service:
+    name: kubelet
+    state: restarted
+
+- name: Kubelet | restart kube-proxy
+  service:
+    name: kube-proxy
+    state: restarted    

@@ -1,0 +1,49 @@
+- name: Install | Copy kuberntes binary from download dir
+  copy:
+    src: "{{ local_release_dir }}/{{ item }}-{{ kube_version }}-{{ image_arch }}"
+    dest: "{{ bin_dir }}/{{ item }}"
+    mode: "0755"
+  loop:
+    - kubectl
+  changed_when: false
+  tags:
+    - kubectl
+    - upgrade
+   
+- name: Install | Install kubectl bash completion
+  shell: "{{ bin_dir }}/kubectl completion bash >/etc/bash_completion.d/kubectl.sh"
+  when: ansible_os_family in ["Debian","RedHat"]
+  tags:
+    - kubectl
+  ignore_errors: True
+
+- name: Install | Set kubectl bash completion file permissions
+  file:
+    path: /etc/bash_completion.d/kubectl.sh
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_os_family in ["Debian","RedHat"] 
+  tags:
+    - kubectl
+    - upgrade
+  ignore_errors: True  
+
+- name: Create kube config dir for current/ansible become user
+  file:
+    path: "{{ ansible_env.HOME | default('/root') }}/.kube"
+    mode: "0700"
+    state: directory  
+  tags:
+    - kubectl
+    - upgrade  
+
+- name: Copy admin kubeconfig to current/ansible become user home
+  copy:
+    src: "{{ ansible_env.HOME | default('/root') }}/.kube/config"
+    dest: "{{ ansible_env.HOME | default('/root') }}/.kube/config"
+    mode: "0600"
+    backup: yes
+  tags:
+    - kubectl
+    - upgrade  

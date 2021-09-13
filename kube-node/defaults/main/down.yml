@@ -1,0 +1,22 @@
+---
+kube_proxy_download_url: "https://storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kube-proxy"
+kube_proxy_binary_checksums:
+  arm:
+    v1.21.3: 0
+  arm64:
+    v1.21.3: 0
+  amd64:
+    v1.21.3: 7283dfb06c13590cc34c524ca902b9a0d748394bb27e8b6d7b967d0a31556a80
+kube_proxy_binary_checksum: "{{ kube_proxy_binary_checksums[image_arch][kube_version] }}"
+
+kube_node_down:
+  kube_proxy:
+    enabled: true
+    file: true
+    version: "{{ kube_version }}"
+    dest: "{{ local_release_dir }}/kube-proxy-{{ kube_version }}-{{ image_arch }}"
+    sha256: "{{ kube_proxy_binary_checksum }}"
+    url: "{{ kube_proxy_download_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"

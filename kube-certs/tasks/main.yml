@@ -1,0 +1,6 @@
+---
+- name: Certs| include cfssl
+  import_tasks: cfssl.yml
+
+- name: Certs| gen certs
+  import_tasks: gen_certs.yml

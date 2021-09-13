@@ -1,0 +1,10 @@
+dependencies:
+  - role: lotus/kube-app/network/cilium
+    when: kube_network_plugin == 'cilium' or cilium_deploy_additionally | default(false) | bool
+    tags:
+      - cilium
+
+  - role: lotus/kube-app/network/calico
+    when: kube_network_plugin == 'calico'
+    tags:
+      - calico

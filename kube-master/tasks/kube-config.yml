@@ -1,0 +1,145 @@
+---    
+- name: Create kube config dir 
+  file:
+    path: "{{ ansible_env.HOME | default('/root') }}/.kube"
+    mode: "0700"
+    state: directory
+
+- name: Create kube cert dir 
+  file:
+    path: "{{ kube_cert_dir }}"
+    mode: "0700"
+    state: directory
+ 
+- name: Cfssl | copy cert {{ kube_cert_dir }}
+  copy:
+    src:  "{{ item }}"
+    dest: "{{ kube_cert_dir }}"
+  with_fileglob:
+     - "{{ kube_config_dir }}/cert/*.pem"
+  when:
+    - sync_certs|default(false)   
+  notify: 
+    - Master | Restart kube-apiserver
+    - Master | Restart kube-controller-manager
+    - Master | Restart kube-scheduler    
+  tags:
+    - kube-master  
+
+- name: Kube-master｜Write kuberntes master environment config file 
+  template:
+    src: "{{ item }}.env.j2"
+    dest: "{{ kube_config_dir }}/{{ item }}.env"
+    backup: yes
+  loop:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+  notify: 
+    - Master | Restart kube-apiserver
+    - Master | Restart kube-controller-manager
+    - Master | Restart kube-scheduler  
+  tags:
+    - kube-master
+
+- name: Kube-master｜Write kube-scheduler config file
+  template:
+    src: "{{ item }}.yaml.j2"
+    dest: "{{ kube_config_dir }}/{{ item }}.yaml"
+  loop:
+    - kube-scheduler
+  notify:
+    - Master | Restart kube-scheduler   
+  tags:
+    - kube-master  
+
+- name: kubeconfig| Copy kubeconfig gen sh to cert dir 
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ kube_config_dir }}/cert/{{ item }}"
+  delegate_to: localhost
+  connection: local
+  run_once: yes  
+  loop:
+    - "kube-admin.sh"
+    - "kube-controller-manager.sh"
+    - "kube-scheduler.sh"
+ 
+- name: kubeconfig | gen kubeconfig to cert dir 
+  shell: "cd {{ kube_config_dir }}/cert && sh -x {{ item }}"
+  delegate_to: localhost
+  connection: local
+  run_once: yes
+  loop:
+    - "kube-admin.sh"
+    - "kube-controller-manager.sh"
+    - "kube-scheduler.sh"
+
+- name: Copy admin kubeconfig to current/ansible become user home
+  copy:
+    src: "{{ ansible_env.HOME | default('/root') }}/.kube/config"
+    dest: "{{ ansible_env.HOME | default('/root') }}/.kube/config"
+    mode: "0600"
+    backup: yes   
+
+- name: Kube-master｜ Write kubebconfig file
+  copy:
+    src: "{{ kube_config_dir }}/cert/{{ item }}.kubeconfig"
+    dest: "{{ kube_config_dir }}/{{ item }}.kubeconfig"
+  loop:
+    - kube-controller-manager
+    - kube-scheduler
+  notify: 
+    - Master | Restart kube-controller-manager
+    - Master | Restart kube-scheduler   
+  when:
+    - sync_certs|default(false)
+  tags:
+    - kube-master
+
+- name: Kube-master｜Write kube-master systemd init file
+  template:
+    src: "{{ item }}.service.j2"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    backup: "yes"
+  loop:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+  notify: 
+    - Master | Restart kube-apiserver
+    - Master | Restart kube-controller-manager
+    - Master | Restart kube-scheduler
+  tags:
+    - kube-master 
+
+- name: flush_handlers and reload-systemd
+  meta: flush_handlers  
+
+- name: Enable kube-apiserver
+  service:
+    name: kube-apiserver
+    enabled: yes
+    state: started
+  tags:
+    - kube-apiserver
+  notify: Master | Restart kube-apiserver
+
+- name: Enable kube-controller-manager
+  service:
+    name: kube-controller-manager
+    enabled: yes
+    state: started
+  tags:
+    - kube-controller-manager
+  notify: Master | Restart kube-controller-manager
+
+- name: Enable kube-scheduler
+  service:
+    name: kube-scheduler
+    enabled: yes
+    state: started
+  tags:
+    - kube-scheduler
+  notify: Master | Restart kube-scheduler
+

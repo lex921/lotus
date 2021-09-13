@@ -1,0 +1,14 @@
+[Unit]
+Description=Kubernetes Scheduler Plugin
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+
+[Service]
+User=root
+EnvironmentFile=-{{ kube_config_dir }}/kube-scheduler.env
+ExecStart={{ bin_dir }}/kube-scheduler \
+	      $KUBE_SCHEDULER_ARGS
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

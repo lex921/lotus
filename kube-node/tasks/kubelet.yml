@@ -1,0 +1,87 @@
+---
+- name: Make sure dynamic kubelet configuration directory is writeable
+  file:
+    path: "{{ dynamic_kubelet_configuration_dir }}"
+    mode: 0600
+    state: directory
+  when: dynamic_kubelet_configuration
+
+- name: Set kubelet api version to v1beta1
+  set_fact:
+    kubeletConfig_api_version: v1beta1
+  tags:
+    - kubelet
+
+- name: kubeconfig| Copy bootstrap kubeconfig genscript
+  template:
+    src: "bootstrap.sh.j2"
+    dest: "{{kube_config_dir }}/cert/bootstrap.sh"
+  delegate_to: localhost
+  run_once: yes  
+ 
+- name: kubeconfig | gen bootstrap kubeconfig and boostraptoken
+  shell: "cd {{ kube_config_dir }}/cert && sh -x bootstrap.sh"
+  delegate_to: localhost
+  run_once: yes   
+  
+- name: Init bootstrap apply for kubernetes
+  shell: "cd {{ kube_config_dir }}/cert && kubectl apply -f bootstrap.secret.yaml"
+  delegate_to: localhost
+  run_once: yes 
+
+- name: kubeconfig| Copy kubelet config config dir 
+  copy:
+    src: "{{ kube_config_dir }}/cert/bootstrap.kubeconfig"
+    dest: "{{ kube_config_dir }}/bootstrap.kubeconfig" 
+  notify: 
+    - Node | restart kubelet
+  tags:
+    - kubelet
+
+- name: kubeconfig| Copy ca to config dir 
+  copy:
+    src: "{{ kube_config_dir }}/cert/ca.pem"
+    dest: "{{ kube_cert_dir }}/ca.crt"
+  notify: 
+    - Node | restart kubelet
+  tags:
+    - kubelet
+
+- name: Write kubelet environment config file (kubeadm)
+  template:
+    src: "kubelet.env.{{ kubeletConfig_api_version }}.j2"
+    dest: "{{ kube_config_dir }}/kubelet.env"
+    backup: yes
+  notify: Node | restart kubelet
+  tags:
+    - kubelet
+
+
+- name: Write kubelet config file
+  template:
+    src: "kubelet-config.{{ kubeletConfig_api_version }}.yaml.j2"
+    dest: "{{ kube_config_dir }}/kubelet-config.yaml"
+  notify: Kubelet | restart kubelet
+  tags:
+    - kubelet
+
+- name: Write kubelet systemd init file
+  template:
+    src: "kubelet.service.j2"
+    dest: "/etc/systemd/system/kubelet.service"
+    backup: "yes"
+  notify: Node | restart kubelet
+  tags:
+    - kubelet
+
+- name: flush_handlers and reload-systemd
+  meta: flush_handlers
+
+- name: Enable kubelet
+  service:
+    name: kubelet
+    enabled: yes
+    state: started
+  tags:
+    - kubelet
+  notify: Kubelet | restart kubelet

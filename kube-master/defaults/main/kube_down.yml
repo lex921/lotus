@@ -1,0 +1,61 @@
+---
+image_arch: "{{host_architecture | default('amd64')}}"
+kube_apiserver_url: "https://storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kube-apiserver"
+kube_controller_manager_url: "https://storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kube-controller-manager"
+kube_scheduler_url: "https://storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kube-scheduler"
+kube_apiserver_checksums:
+  amd64:
+    v1.21.3: f8fc46f1acfef88f094bbd6e648d2a00e49687260d5d71fec00bbf96590eb987
+  arm: 0
+  arm64: 0  
+
+kube_controller_manager_checksums:
+  amd64:
+    v1.21.3: 6b813b52e240bc61acafe70434d334c5a21732093552af9be6aaba5bb060b63b
+  arm: 0
+  arm64: 0  
+
+kube_scheduler_checksums:
+  amd64:
+    v1.21.3: 9e75952e5df826ec2e43314bd83cf39f9728e80ea0680a39cb8cc4c5c940e903  
+  arm: 0
+  arm64: 0  
+
+kube_apiserver_checksum: "{{ kube_apiserver_checksums[image_arch][kube_version] }}"  
+kube_controller_manager_checksum: "{{ kube_controller_manager_checksums[image_arch][kube_version] }}"  
+kube_scheduler_checksum: "{{ kube_scheduler_checksums[image_arch][kube_version] }}" 
+kube_master_bin: 
+  - "kube-apiserver"
+  - "kube-controller-manager"
+  - "kube-scheduler"
+kube_down:
+  kube_apiserver:
+    enabled: true
+    file: true
+    version: "{{ kube_version }}"
+    dest: "{{ local_release_dir }}/kube-apiserver"
+    sha256: "{{ kube_apiserver_checksum }}"
+    url: "{{ kube_apiserver_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+  kube_controller_manager:
+    enabled: true
+    file: true
+    version: "{{ kube_version }}"
+    dest: "{{ local_release_dir }}/kube-controller-manager"
+    sha256: "{{ kube_controller_manager_checksum }}"
+    url: "{{ kube_controller_manager_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"
+  kube_scheduler:
+    enabled: true
+    file: true
+    version: "{{ kube_version }}"
+    dest: "{{ local_release_dir }}/kube-scheduler"
+    sha256: "{{ kube_scheduler_checksum }}"
+    url: "{{ kube_scheduler_url }}"
+    unarchive: false
+    owner: "root"
+    mode: "0755"  
